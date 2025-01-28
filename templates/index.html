@@ -1,0 +1,94 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Attendance</title>
+    <!-- Load static CSS file -->
+    <link
+      type="text/css"
+      rel="stylesheet"
+      href="{% static 'css/style.css' %}"
+    />
+  </head>
+
+  <body>
+    <div class="container p-4">
+      <div id="video-frame" class="video">
+        <video id="video" width="720" height="560" autoplay muted></video>
+      </div>
+
+      <!-- Attendance controls -->
+      <div id="option" class="attend">
+        <div class="p-2">
+          <span id="Status">InActive</span>
+          <span id="Count"></span>
+          <div class="progress-bar" id="myProgressBar"></div>
+        </div>
+        <br />
+        <div class="p-2">
+          <div style="display: none !important">
+            <label for="detection-interval">Detection Interval (ms):</label>
+            <input
+              type="range"
+              id="detection-interval"
+              min="0"
+              max="6000"
+              step="1"
+              value="1"
+            />
+            <br />
+            <span id="detection-interval-value">60000</span> ms
+            <label for="detection-limit">Detection Limit:</label>
+            <br />
+            <input
+              type="range"
+              id="detection-limit"
+              min="1"
+              max="10"
+              step="1"
+              value="5"
+            />
+            <span id="detection-limit-value">5</span> detections
+            <br />
+          </div>
+          <input
+            type="text"
+            name="sessionname"
+            id="sessionname"
+            placeholder="Enter Session Name"
+          />
+          <button class="button is-info" id="saveAttendanceBtn">
+            Save Attendance
+          </button>
+        </div>
+        <div>
+          <table class="table" id="attendanceTable">
+            <thead>
+              <tr>
+                <th>Entry</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="attendanceTableBody">
+              <!-- Attendance entries will be dynamically added here -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- External Libraries -->
+    <!-- Load XLSX.js for exporting to Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <!-- Load face-api.js from static folder -->
+    <script type="module" src="{% static 'js/face-api.min.js' %}"></script>
+    <!-- Load ml5.js -->
+    <script src="https://unpkg.com/ml5@1/dist/ml5.js"></script>
+
+    <!-- Main JavaScript file from static folder -->
+    <script type="module" src="{% static 'js/script.js' %}"></script>
+  </body>
+</html>

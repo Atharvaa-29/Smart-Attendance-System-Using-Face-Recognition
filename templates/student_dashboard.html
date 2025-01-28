@@ -1,0 +1,247 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Student Dashboard</title>
+    <link
+      rel="stylesheet"
+      href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+      body {
+        background-color: #f7f7f7;
+      }
+      .container {
+        margin-top: 50px;
+        padding: 30px;
+        background-color: #fff;
+        border-radius: 5px;
+        box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+      }
+      video,
+      canvas {
+        display: block;
+        margin-bottom: 10px;
+        max-width: 100%;
+      }
+      #info {
+        margin-top: 20px;
+        color: green;
+      }
+      .error {
+        color: red;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <button type="submit" class="btn btn-danger btn-sm" onclick="logout()">
+        Logout
+      </button>
+
+      <h2>Welcome, {{ student.name }}</h2>
+      <h3>Your Enrolled Courses</h3>
+      {% if enrolled_courses %}
+      <ul class="list-group">
+        {% for course in enrolled_courses %}
+        <li
+          class="list-group-item d-flex justify-content-between align-items-center"
+        >
+          {{ course.course }} ({{ course.year }})
+          <form
+            method="post"
+            action="{% url 'student_dashboard' student.name %}"
+            style="display: inline"
+          >
+            {% csrf_token %}
+            <input
+              type="hidden"
+              name="unenroll_course"
+              value="{{ course.id }}"
+            />
+            <button type="submit" class="btn btn-danger btn-sm">
+              Unenroll
+            </button>
+          </form>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p>You are not enrolled in any courses.</p>
+      {% endif %}
+
+      <!-- Profile Update Form -->
+      <form id="profile-form" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="form-group">
+          <label for="name">Username</label>
+          <input
+            type="text"
+            class="form-control"
+            id="name"
+            name="name"
+            value="{{ student.name }}"
+            required
+          />
+        </div>
+        <button type="submit" class="btn btn-primary">Update Profile</button>
+      </form>
+
+      <!-- Course Enrollment -->
+      <h3>Enroll in a Course</h3>
+      <form
+        id="enroll-form"
+        method="post"
+        action="{% url 'student_dashboard' student.name %}"
+      >
+        {% csrf_token %}
+        <div class="form-group">
+          <label for="course">Select Course</label>
+          <select id="course" name="course" class="form-control" required>
+            <option value="">Choose a course...</option>
+            {% for course in courses %}
+            <option value="{{ course.id }}">{{ course.course }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Enroll</button>
+      </form>
+
+      <!-- Image Upload Section -->
+      <h3>Upload Images</h3>
+      <div>
+        <video id="video" autoplay></video>
+        <canvas id="canvas" style="display: none"></canvas>
+        <button type="button" id="captureButton" class="btn btn-primary">
+          Capture Image
+        </button>
+        <button
+          type="button"
+          id="captureMultipleButton"
+          class="btn btn-primary"
+        >
+          Capture Multiple Images
+        </button>
+        <p id="info"></p>
+        <p id="errorInfo" class="error"></p>
+      </div>
+    </div>
+
+    <script>
+      let video = document.getElementById("video");
+      let canvas = document.getElementById("canvas");
+      let context = canvas.getContext("2d");
+      let capturedImages = []; // Array to hold captured images
+
+      async function startVideo() {
+        try {
+          let stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+          });
+          video.srcObject = stream;
+          video.play();
+        } catch (err) {
+          console.error("Error accessing the camera: ", err);
+          document.getElementById("errorInfo").innerText =
+            "Error accessing the camera.";
+        }
+      }
+
+      // Capture a single image
+      document.getElementById("captureButton").addEventListener("click", () => {
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => {
+          if (blob) {
+            capturedImages.push(blob); // Add captured image to the array
+            document.getElementById("info").innerText =
+              "Image captured successfully!";
+          } else {
+            document.getElementById("errorInfo").innerText =
+              "Failed to capture image.";
+          }
+        }, "image/jpeg");
+      });
+
+      // Capture multiple images
+      document
+        .getElementById("captureMultipleButton")
+        .addEventListener("click", async () => {
+          document.getElementById("info").innerText =
+            "Capturing images, please wait...";
+          document.getElementById("errorInfo").innerText = ""; // Clear previous errors
+
+          for (let i = 0; i < 20; i++) {
+            await new Promise((resolve) => {
+              setTimeout(() => {
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                canvas.toBlob((blob) => {
+                  if (blob) {
+                    capturedImages.push(blob); // Add captured image to the array
+                  }
+                }, "image/jpeg");
+                resolve();
+              }, 1000); // Capture every 1 second
+            });
+          }
+
+          await uploadImagesAsZip(); // Upload captured images as a ZIP file
+        });
+
+      // Upload captured images as ZIP
+      async function uploadImagesAsZip() {
+        const zip = new JSZip();
+
+        for (let i = 0; i < capturedImages.length; i++) {
+          const blob = capturedImages[i];
+          const fileName = `${i + 1}.jpg`; // Name files appropriately
+          zip.file(fileName, blob); // Add images to the ZIP file
+        }
+
+        const zipBlob = await zip.generateAsync({ type: "blob" }); // Generate the ZIP file
+
+        const formData = new FormData();
+        formData.append("name", "{{ student.name }}");
+        formData.append("image", zipBlob, "images.zip");
+
+        // Add CSRF token
+        const csrfToken = "{{ csrf_token }}";
+
+        await fetch("/upload_image/", {
+          method: "POST",
+          body: formData,
+          headers: {
+            "X-CSRFToken": csrfToken,
+          },
+        })
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error("Network response was not ok");
+            }
+            return response.json();
+          })
+          .then((result) => {
+            document.getElementById("info").innerText =
+              result.message || "Images uploaded successfully!";
+          })
+          .catch((error) => {
+            console.error("Error uploading image:", error);
+            document.getElementById("errorInfo").innerText =
+              "Error uploading images.";
+          });
+      }
+
+      startVideo();
+
+      function logout() {
+        // Clear the token from local storage
+        localStorage.removeItem("token");
+
+        // Redirect to the logout URL
+        window.location.href = "/logout/";
+      }
+    </script>
+  </body>
+</html>

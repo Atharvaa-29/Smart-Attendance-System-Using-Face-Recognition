@@ -1,0 +1,164 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Attendance for {{ course.course }}</title>
+    <!-- Load static CSS file -->
+    <link
+      type="text/css"
+      rel="stylesheet"
+      href="{% static 'css/style.css' %}"
+    />
+  </head>
+
+  <body>
+    <div class="container p-4">
+      <h1>Take Attendance for {{ course.course }}</h1>
+      <h3>Year: {{ course.year }} | Branch: {{ course.branch }}</h3>
+
+      <div id="video-frame" class="video">
+        <video id="video" width="720" height="560" autoplay muted></video>
+      </div>
+
+      <!-- Attendance controls -->
+      <div id="option" class="attend">
+        <div class="p-2">
+          <span id="Status">InActive</span>
+          <span id="Count"></span>
+          <div class="progress-bar" id="myProgressBar"></div>
+        </div>
+        <br />
+        <div class="p-2">
+          <div style="display: none !important">
+            <label for="detection-interval">Detection Interval (ms):</label>
+            <input
+              type="range"
+              id="detection-interval"
+              min="0"
+              max="6000"
+              step="1"
+              value="1"
+            />
+            <br />
+            <span id="detection-interval-value">60000</span> ms
+            <label for="detection-limit">Detection Limit:</label>
+            <br />
+            <input
+              type="range"
+              id="detection-limit"
+              min="1"
+              max="10"
+              step="1"
+              value="5"
+            />
+            <span id="detection-limit-value">5</span> detections
+            <br />
+          </div>
+          <input
+            type="text"
+            name="sessionname"
+            id="sessionname"
+            placeholder="Enter Session Name"
+            value="{{course.course}}"
+          />
+          <button class="button is-info" id="saveAttendanceBtn">
+            Save Attendance
+          </button>
+        </div>
+        <h2>Registered Students:</h2>
+        <table class="table" id="attendanc">
+          <thead>
+            <tr>
+              <th>Roll No</th>
+              <th>Name</th>
+            </tr>
+          </thead>
+          <tbody id="">
+            {% for student in students %}
+            <tr>
+              <td>{{ student.roll_no }}</td>
+              <td>{{ student.name }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <!-- Students List -->
+        <h1>Recognized</h1>
+        <table class="table" id="attendanceTable">
+          <thead></thead>
+          <tbody id="attendanceTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- External Libraries -->
+    <!-- Load XLSX.js for exporting to Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <!-- Load face-api.js from static folder -->
+    <script type="module" src="{% static 'js/face-api.min.js' %}"></script>
+    <!-- Load ml5.js -->
+    <script src="https://unpkg.com/ml5@1/dist/ml5.js"></script>
+
+    <!-- Main JavaScript file from static folder -->
+    <script type="module" src="{% static 'js/script.js' %}"></script>
+
+    <script type="module">
+      document
+        .getElementById("saveAttendanceBtn")
+        .addEventListener("click", function () {
+          // Create a FormData object to send attendance data
+          const formData = new FormData();
+
+          // Collect attendance data from attendanceTableBody
+          const attendanceRows = document.querySelectorAll(
+            "#attendanceTableBody tr"
+          );
+          const attendanceData = [];
+
+          attendanceRows.forEach((row) => {
+            const studentName = row
+              .querySelector("td")
+              .textContent.split(" - ")[0]; // Extract name from the first td
+            attendanceData.push(studentName); // Store name in attendanceData
+          });
+
+          // Append attendance data to FormData
+          formData.append("attendance", JSON.stringify(attendanceData));
+
+          const csrfToken = "{{ csrf_token }}"; // Make sure to use the correct CSRF token
+          // Post the data to the server
+          fetch(`/course/{{ course.id }}/`, {
+            // Make sure to include the course ID in the URL
+            method: "POST",
+            body: formData,
+            headers: {
+              "X-CSRFToken": csrfToken,
+            },
+          })
+            .then((response) => {
+              if (response.ok) {
+                return response.blob(); // Expecting an Excel file
+              }
+              throw new Error("Network response was not ok.");
+            })
+            .then((blob) => {
+              // Create a link to download the file
+              const link = document.createElement("a");
+              const url = window.URL.createObjectURL(blob);
+              link.href = url;
+              link.download = `attendance_{{ course.course }}.xlsx`; // File name
+              document.body.appendChild(link);
+              link.click();
+              link.remove();
+              window.URL.revokeObjectURL(url); // Cleanup
+            })
+            .catch((error) => {
+              console.error("Error:", error);
+            });
+        });
+    </script>
+  </body>
+</html>
